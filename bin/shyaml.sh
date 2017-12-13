@@ -8,7 +8,7 @@
 #   3. Write a Shyl object to file
 #   4. Change some key's value of a Shyl object
 #
-# @Copyright: luodongseu.luo@huawei.com
+# @Copyright: luodongseu
 # @Date: 2017/12/11
 #
 
