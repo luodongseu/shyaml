@@ -16,8 +16,12 @@
 declare -r script_name=$0
 
 # Definition of Shyl object
-# This is a array struct object, which contains elements format by k.k.k:::v
+# This is an array struct object, which contains elements format by k.k.k:v
+# This array represent all key-value pairs 
 declare -a _SHYL=()
+
+# This is an array contains current keys stack
+# This array is dynamic
 declare -a _keys=()
 
 
@@ -55,21 +59,21 @@ function echoHelp
     echo "Usage: ${script_name} [option...]" >&2
     echo
     echo " -f/load/loadYaml2Shyl <file>               Load a yaml to Shyl object(A shyaml's special data struct)"
-    echo "                                              exp: ${script_name} -f service.yaml"
+    echo "                                              e.g.: ${script_name} -f service.yaml"
     echo " -g/getValue/getShylValue <key>             Query a key(multi keys must combined with '.')'s value from a Shyl object"
     echo "                                            !!You must load a yaml file firstly"
-    echo "                                              exp1: ${script_name} -f service.yaml -g key1.key2"
-    echo "                                              exp2: ${script_name} -f service.yaml | ${script_name} -g key1.key2"
+    echo "                                              e.g.1: ${script_name} -f service.yaml -g key1.key2"
+    echo "                                              e.g.2: ${script_name} -f service.yaml | ${script_name} -g key1.key2"
     echo " -gy/getYamlValue/getValueByYaml <key>      Query a key(multi keys must combined with '.')'s value from just from a yaml file"
-    echo "                                              exp: ${script_name} -gy key1.key2 service.yaml"
+    echo "                                              e.g.: ${script_name} -gy key1.key2 service.yaml"
     echo " -s/setValue/setShylValue <key> <value>     Set a key(multi keys must combined with '.')'s value from a Shyl object"
     echo "                                            !!You must load a yaml file firstly"
-    echo "                                              exp1: ${script_name} -f service.yaml -s key1.key2 new_value"
-    echo "                                              exp1: ${script_name} -f service.yaml | ${script_name} -s key1.key2 new_value"
+    echo "                                              e.g.1: ${script_name} -f service.yaml -s key1.key2 new_value"
+    echo "                                              e.g.2: ${script_name} -f service.yaml | ${script_name} -s key1.key2 new_value"
     echo " -c/save/saveShyl2Yaml <file>               Create a yaml file by a Shyl object"
     echo "                                            !!You must load a yaml file firstly"
-    echo "                                              exp1: ${script_name} -f service.yaml -c s.yaml"
-    echo "                                              exp1: ${script_name} -f service.yaml | ${script_name} -c s.yaml"
+    echo "                                              e.g.1: ${script_name} -f service.yaml -c s.yaml"
+    echo "                                              e.g.2: ${script_name} -f service.yaml | ${script_name} -c s.yaml"
     echo " -h/--help                                  Display ${script_name} usage"
     echo
     exit 1
