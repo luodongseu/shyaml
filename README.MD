@@ -80,7 +80,7 @@ a:
   c:
     d: 4
 ```
-* Value contains {}
+* Value contains {}, e.g.
 ```yaml
 a: 1
 b: {x: "",y: 123}
