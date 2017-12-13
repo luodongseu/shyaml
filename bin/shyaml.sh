@@ -89,7 +89,11 @@ function validateSpaceNum
 function resetKeys
 {
     local space_start=$(echo "${1}" | grep '^[ ]')
-    if [ "X" == "X${space_start}" ];then
+    local arr_start=$(echo "${1}" | grep '^-')
+    if [ "X" == "X${space_start}" -a "X" == "X${arr_start}" ];then
+        # Rest _keys's value condition(and):
+        #   (1) current key is start with no space
+        #   (2) current key is not start with '-' symbol
         _keys=()
     fi
 }
@@ -293,14 +297,13 @@ function loadYaml2Shyl
                     fi
 
                     if [ ${next_line_space_num} -ne $((space_num + 2)) -a ${next_line_space_num} -ne ${space_num} ] || [ ${next_line_space_num} -eq ${space_num} -a "X" == "X${arr}" ];then
-                        # 2 condition must be consider to prove current key's value is empty
+                        # 2 condition(or) should be consider to prove current key's value is empty
                         #   (1) Next line's space num is not equal ${space_num} + 2 and not equal ${space_num}
-                        # or(2) Next line's space num is equal ${space_num} but next line string is not start with '-' (present array)
+                        #   (2) Next line's space num is equal ${space_num} but next line string is not start with '-' (present array)
                         _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} "${key}"):"
                     fi
                 fi
             fi
-
             refreshKeys ${space_num} "${key}"
         fi
         ((cursor += 1))
@@ -362,7 +365,7 @@ function saveShyl2Yaml
             errorShylObject
         fi
 
-        # 2 condition must be considered:
+        # 2 condition(and) must be considered:
         #   (1) Current key is a new structure: All key words will be wrote to file with special format
         #   (2) Current key is not a new structure: Only new key words will be wrote to fle with special format
         if [ ${#_keys[*]} -eq 0 -o "${_k[0]}" != "${_keys[0]}" ];then
