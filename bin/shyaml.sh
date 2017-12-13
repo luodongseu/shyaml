@@ -12,12 +12,12 @@
 # @Date: 2017/12/11
 #
 
-
+# Current script name
 declare -r script_name=$0
 
 # Definition of Shyl object
 # This is a array struct object, which contains elements format by k.k.k:::v
-declare -a _SHYL
+declare -a _SHYL=()
 declare -a _keys=()
 
 
