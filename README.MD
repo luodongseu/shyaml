@@ -61,7 +61,7 @@ Usage: ./shyaml.sh [option...]
 
 So, you can use a single command with '-f' and '-g[y]|-s|-c' to finish complex mission.
 
-## Ues range
+## Use range
 
 So far, shyaml can handle follow yaml content types:
 
