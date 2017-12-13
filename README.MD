@@ -60,3 +60,28 @@ Usage: ./shyaml.sh [option...]
 ```
 
 So, you can use a single command with '-f' and '-g[y]|-s|-c' to finish complex mission.
+
+## Ues range
+
+So far, shyaml can handle follow yaml content types:
+
+* Simple key value pair, e.g. 
+```yaml
+a: 1
+b: 2
+```
+* Array value, e.g. 
+```yaml
+a:
+- b: 1
+  c:
+    d: 2
+- b: 3
+  c:
+    d: 4
+```
+* Value contains {}
+```yaml
+a: 1
+b: {x: "",y: 123}
+```
