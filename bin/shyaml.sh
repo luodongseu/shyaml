@@ -13,9 +13,7 @@
 #
 
 
-# Parameters need
-# Operation name
-typeset opera_name=$1
+declare -r script_name=$0
 
 # Definition of Shyl object
 # This is a array struct object, which contains elements format by k.k.k:::v
@@ -43,6 +41,38 @@ function errorShylObject
 {
     >&2 echo "Invalid Shyl object!"
     exit 4
+}
+
+# Usage:
+# ${script_name} -f/load/loadYaml2Shyl <file>
+# ${script_name} -g/getValue/getShylValue <key>
+# ${script_name} -gy/getYamlValue/getValueByYaml <key>
+# ${script_name} -s/setValue/setShylValue <key> <value>
+# ${script_name} -c/save/saveShyl2Yaml <file>
+# ${script_name} -h/--help
+function echoHelp
+{
+    echo "Usage: ${script_name} [option...]" >&2
+    echo
+    echo " -f/load/loadYaml2Shyl <file>               Load a yaml to Shyl object(A shyaml's special data struct)"
+    echo "                                              exp: ${script_name} -f service.yaml"
+    echo " -g/getValue/getShylValue <key>             Query a key(multi keys must combined with '.')'s value from a Shyl object"
+    echo "                                            !!You must load a yaml file firstly"
+    echo "                                              exp1: ${script_name} -f service.yaml -g key1.key2"
+    echo "                                              exp2: ${script_name} -f service.yaml | ${script_name} -g key1.key2"
+    echo " -gy/getYamlValue/getValueByYaml <key>      Query a key(multi keys must combined with '.')'s value from just from a yaml file"
+    echo "                                              exp: ${script_name} -gy key1.key2 service.yaml"
+    echo " -s/setValue/setShylValue <key> <value>     Set a key(multi keys must combined with '.')'s value from a Shyl object"
+    echo "                                            !!You must load a yaml file firstly"
+    echo "                                              exp1: ${script_name} -f service.yaml -s key1.key2 new_value"
+    echo "                                              exp1: ${script_name} -f service.yaml | ${script_name} -s key1.key2 new_value"
+    echo " -c/save/saveShyl2Yaml <file>               Create a yaml file by a Shyl object"
+    echo "                                            !!You must load a yaml file firstly"
+    echo "                                              exp1: ${script_name} -f service.yaml -c s.yaml"
+    echo "                                              exp1: ${script_name} -f service.yaml | ${script_name} -c s.yaml"
+    echo " -h/--help                                  Display ${script_name} usage"
+    echo
+    exit 1
 }
 
 # Use: $1: string
@@ -321,7 +351,7 @@ function getShylValue
     do
         local _s=($(splitByFirstMatch "${_SHYL[i]}" ":"))
         if [ "X${_s[0]}" == "X${1}" ];then
-            echo ${_s[1]:1}
+            echo "${_s[@]:1}"
             returned=1
             break
         fi
@@ -391,39 +421,53 @@ function saveShyl2Yaml
     done
 }
 
-case "${opera_name}" in
-    loadYaml2Shyl)
-    # Get whole yaml object with format output (we say Shyl object)
-    # Use: load demo.yaml
-    # Return: Shyl object
-    loadYaml2Shyl "${2}"
-    printShyl
-    ;;
-    getShylValue)
-    # Query some key's value of a Shyl object
-    # Use: getValue key1.key2.key3 < Shyl
-    # Return: A string
-    preLoadYaml
-    getShylValue "${2}"
-    ;;
-    getValueByYaml)
-    # Query some key's value of a Shyl object
-    # Use: getValue key1.key2.key3 demo.yaml
-    # Return: A string
-    loadYaml2Shyl "${3}"
-    getShylValue "${2}"
-    ;;
-    setShylValue)
-    # Change some key's value of a Shyl object
-    # Use: setValue key1.key2.key3 value1 < Shyl
-    preLoadYaml
-    setShylValue "${2}" "${3}"
-    printShyl
-    ;;
-    saveShyl2Yaml)
-    # Write a Shyl object to file
-    # Use: save demo2.yaml < Shyl1
-    preLoadYaml
-    saveShyl2Yaml "${2}"
-    ;;
-esac
+# Parameters need
+# Operation name
+until [ $# -eq 0 ]
+do
+    case "${1}" in
+        -f|load|loadYaml2Shyl)
+        # Get whole yaml object with format output (we say Shyl object)
+        # Use: load|loadYaml2Shyl demo.yaml
+        # Return: Shyl object
+        loadYaml2Shyl "${2}"
+        printShyl
+        shift 2
+        ;;
+        -g|getValue|getShylValue)
+        # Query some key's value of a Shyl object
+        # Use: getValue|getShylValue key1.key2.key3 < Shyl
+        # Return: A string
+        preLoadYaml
+        getShylValue "${2}"
+        shift 2
+        ;;
+        -gy|getYamlValue|getValueByYaml)
+        # Query some key's value of a Shyl object
+        # Use: getYamlValue|getValueByYaml key1.key2.key3 demo.yaml
+        # Return: A string
+        loadYaml2Shyl "${3}"
+        getShylValue "${2}"
+        shift 3
+        ;;
+        -s|setValue|setShylValue)
+        # Change some key's value of a Shyl object
+        # Use: setValue|setShylValue key1.key2.key3 value1 < Shyl
+        preLoadYaml
+        setShylValue "${2}" "${3}"
+        printShyl
+        shift 3
+        ;;
+        -c|save|saveShyl2Yaml)
+        # Write a Shyl object to file
+        # Use: save|saveShyl2Yaml demo2.yaml < Shyl1
+        preLoadYaml
+        saveShyl2Yaml "${2}"
+        shift 2
+        ;;
+        -h|--help|*)
+        # Usage display
+        echoHelp
+        ;;
+    esac
+done
