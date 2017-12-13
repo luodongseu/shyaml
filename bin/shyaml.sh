@@ -55,6 +55,7 @@ function splitByFirstMatch
     echo "${f}" "${s}"
 }
 
+# Combine key(k1 k2 k3) array to k1.k2.k3 joined by '.' symbol
 # Use: $1: space num
 #      $2: added key
 function combineKeyPrefix
@@ -74,7 +75,6 @@ function combineKeyPrefix
     else
         echo "${2}"
     fi
-
 }
 
 # Use: $1: space num
@@ -120,86 +120,18 @@ function getStartSpaceNum
     echo $(echo "${1}" | grep -o '^[ ]*' | grep -o '[ ]' | wc -l)
 }
 
+# Use: $1: key string, like 'k1[1]'
+function getKeyArrayIndex
+{
+    echo $(echo "${1}" | grep -o '\[\([0-9]*\)\]' | sed -e 's/\[\|\]//g')
+}
+
 # Print shyl object by line to line
 function printShyl
 {
     for ((i=0;i<${#_SHYL[*]};i++))
     do
         echo "${_SHYL[i]}"
-    done
-}
-
-# Load a yaml file to shyl object
-# Use: $1: filepath
-function loadYaml2Shyl
-{
-    # Total line number of file
-    local file_size=$(cat $1 | wc -l)
-    local cursor=1
-    while [ ${cursor} -le $((file_size+1)) ]
-    do
-        local line_str=$(getAvailableLine ${1} ${cursor})
-        if [ "X" == "X$(echo "${line_str}" | grep '[^ ]')" ];then
-            # Blank line filter
-            ((cursor += 1))
-            continue
-        fi
-
-        resetKeys "${line_str}"
-
-        local space_num=$(getStartSpaceNum "${line_str}")
-        validateSpaceNum ${space_num}
-
-        # Array handle
-        local arr=$(echo ${line_str} | grep '^-')
-        if [ "X" != "X${arr}" ];then
-            # This is an array element
-            local p_k="${_keys[$((${space_num} / 2))]}"
-            local last_index=$(echo "${p_k}" | grep -o '\[\([0-9]*\)\]' | sed -e 's/\[\|\]//g')
-            if [ "X" != "X${last_index}" ];then
-                _keys[$((${space_num} / 2))]="${p_k//${last_index}/$((${last_index} + 1))}"
-            else
-                _keys[$((${space_num} / 2))]="${p_k}[0]"
-            fi
-            line_str="${line_str//-/ }"
-            space_num=$((${space_num} + 2))
-        fi
-
-        # A string within {} symbols is a simple value of yaml
-        # A key-value pair must contains ':' symbol
-        local simple_value=$(echo ${line_str} | grep -v '^{' | grep ':')
-        if [ "X" == "X${simple_value}" ];then
-             local value=$(echo ${line_str})
-             _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} ""):\'${value//\"/\\\"}\'"
-        else
-            local key="$(echo ${line_str} | awk -F ':' '{print $1}')"
-            local value="$(echo ${line_str} | sed "s|^${key}:[ ]*||")"
-            if [ "X" != "X${value}" ];then
-                _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} "${key}"):\'${value}\'"
-            else
-                # Predict next line to check current value is null or current key is a parent key
-                if [ $((cursor + 1)) -le ${file_size} ];then
-                    local next_line="$(getAvailableLine ${1} $((cursor+1)))"
-                    local next_line_space_num=$(getStartSpaceNum "${next_line}")
-
-                    if [ ${next_line_space_num} -gt $((space_num + 2)) ];then
-                        # Next line space num must not greater than current line space num + 2
-                        errorParseYaml
-                    fi
-
-                    local arr=$(echo ${next_line} | grep '^-')
-                    if [ ${next_line_space_num} -ne $((space_num + 2)) -a ${next_line_space_num} -ne ${space_num} ] || [ ${next_line_space_num} -eq ${space_num} -a "X" == "X${arr}" ];then
-                        # 2 condition must be consider to prove current key's value is empty
-                        #   (1) Next line's space num is not equal ${space_num} + 2 and not equal ${space_num}
-                        # or(2) Next line's space num is equal ${space_num} but next line string is not start with '-' (present array)
-                        _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} "${key}"):"
-                    fi
-                fi
-            fi
-
-            refreshKeys ${space_num} "${key}"
-        fi
-        ((cursor += 1))
     done
 }
 
@@ -243,7 +175,7 @@ function writeLineToFile
         _new_line="${_new_line}  ";
     done
 
-    local arr_c_index=$(echo "${_key}" | grep -o '\[\([0-9]*\)\]' | sed -e 's/\[\|\]//g')
+    local arr_c_index=$(getKeyArrayIndex "${_key}")
     if [ "X" != "X${arr_c_index}" ];then
         # Remove key index
         _key=${_key//\[${arr_c_index}\]/}
@@ -251,7 +183,7 @@ function writeLineToFile
 
     if [ ${2} -gt 0 ];then
         # Last blank space
-        local arr_p_index=$(echo "${cur_keys[$((${2}-1))]}" | grep -o '\[\([0-9]*\)\]' | sed -e 's/\[\|\]//g')
+        local arr_p_index=$(getKeyArrayIndex "${cur_keys[$((${2}-1))]}")
         if [ "X" != "X${arr_p_index}" -a 0 -eq ${3} ];then
             # Complex array
             _new_line="${_new_line}- ";
@@ -278,11 +210,109 @@ function writeLineToFile
     fi
 }
 
+# Use: $1: key depth
+#      $2: current keys
+function checkElementIsTheFirstInArray
+{
+    # Check array type
+    # If last key-value contains current key's parent key string, the array type is 1, which
+    #   present current key is not first element of current key's parent array
+    local _p_keys="${@:2:$((${1}))}"
+    if [ ${#_SHYL[*]} -ge ${i} -a ${i} -gt 0 ];then
+        if [[ "${_SHYL[$((${i}-1))]}" =~ "${_p_keys// /.}" ]];then
+            echo "1"
+        else
+            echo "0"
+        fi
+    fi
+}
+
+####################################################################################################
+# Main functions definition
+####################################################################################################
+
+# Load a yaml file to shyl object
+# Use: $1: filepath
+function loadYaml2Shyl
+{
+    # Total line number of file
+    local file_size=$(cat $1 | wc -l)
+    local cursor=1
+    while [ ${cursor} -le $((file_size+1)) ]
+    do
+        local line_str=$(getAvailableLine ${1} ${cursor})
+        if [ "X" == "X$(echo "${line_str}" | grep '[^ ]')" ];then
+            # Blank line filter
+            ((cursor += 1))
+            continue
+        fi
+
+        resetKeys "${line_str}"
+
+        local space_num=$(getStartSpaceNum "${line_str}")
+        validateSpaceNum ${space_num}
+
+        # Array handle
+        local arr=$(echo ${line_str} | grep '^-')
+        if [ "X" != "X${arr}" ];then
+            # This is an array element
+            local p_k="${_keys[$((${space_num} / 2))]}"
+            local last_index=$(getKeyArrayIndex "${p_k}")
+            if [ "X" != "X${last_index}" ];then
+                _keys[$((${space_num} / 2))]="${p_k//${last_index}/$((${last_index} + 1))}"
+            else
+                _keys[$((${space_num} / 2))]="${p_k}[0]"
+            fi
+            line_str="$(echo ${line_str} | sed 's/^-//')"
+            space_num=$((${space_num} + 2))
+        fi
+
+        # A string within {} symbols is a simple value of yaml
+        # A key-value pair must contains ':' symbol
+        local simple_value=$(echo ${line_str} | grep -v '^{' | grep ':')
+        if [ "X" == "X${simple_value}" ];then
+             local value=$(echo ${line_str})
+             _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} ""):${value}"
+        else
+            local key="$(echo ${line_str} | awk -F ':' '{print $1}')"
+            local value="$(echo ${line_str} | sed "s|^${key}:[ ]*||")"
+            if [ "X" != "X${value}" ];then
+                _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} "${key}"):${value}"
+            else
+                # Predict next line to check current value is null or current key is a parent key
+                if [ $((cursor + 1)) -le ${file_size} ];then
+                    local next_line="$(getAvailableLine ${1} $((cursor+1)))"
+                    local next_line_space_num=$(getStartSpaceNum "${next_line}")
+                    local arr=$(echo ${next_line} | grep '^-')
+
+                    if [ ${next_line_space_num} -gt $((space_num + 2)) ] || [ "X" != "X${arr}" -a ${next_line_space_num} -gt ${space_num} ] ;then
+                        # Yaml format error situation:
+                        # Next line space num must not greater than ${space_num} num + 2
+                        #   or: when next line start with '-' (as an array element) and next line space num is greater than ${space_num}
+                        errorParseYaml
+                    fi
+
+                    if [ ${next_line_space_num} -ne $((space_num + 2)) -a ${next_line_space_num} -ne ${space_num} ] || [ ${next_line_space_num} -eq ${space_num} -a "X" == "X${arr}" ];then
+                        # 2 condition must be consider to prove current key's value is empty
+                        #   (1) Next line's space num is not equal ${space_num} + 2 and not equal ${space_num}
+                        # or(2) Next line's space num is equal ${space_num} but next line string is not start with '-' (present array)
+                        _SHYL[${#_SHYL[*]}]="$(combineKeyPrefix ${space_num} "${key}"):"
+                    fi
+                fi
+            fi
+
+            refreshKeys ${space_num} "${key}"
+        fi
+        ((cursor += 1))
+    done
+}
+
 # Query a value of yaml by key name
 # Use: $1: key name, like: a.b.c
 #      $2: file name
 function getShylValue
 {
+    # 'returned' is a flag for check if found target key in _SHYL array
     local returned=0
     for ((i=0;i<${#_SHYL[*]};i++))
     do
@@ -332,24 +362,13 @@ function saveShyl2Yaml
             errorShylObject
         fi
 
-        # Check array type
-        # If last key-value contains current key's parent key string, the array type is 1, which
-        #   present current key is not first element of current key's parent array
-        local _p_keys="${_k[*]:0:$((${#_k[*]}-1))}"
-        local array_type=0
-        if [ ${#_SHYL[*]} -ge ${i} -a ${i} -gt 0 ];then
-            if [[ "${_SHYL[$((${i}-1))]}" =~ "${_p_keys// /.}" ]];then
-                array_type=1
-            fi
-        fi
-
         # 2 condition must be considered:
         #   (1) Current key is a new structure: All key words will be wrote to file with special format
         #   (2) Current key is not a new structure: Only new key words will be wrote to fle with special format
         if [ ${#_keys[*]} -eq 0 -o "${_k[0]}" != "${_keys[0]}" ];then
             for ((ii=0;ii<${#_k[*]};ii++))
             do
-                writeLineToFile ${1} ${ii} ${array_type} "${_k[*]}" "${_s[@]:1}"
+                writeLineToFile ${1} ${ii} 0 "${_k[*]}" "${_s[@]:1}"
             done
         else
             # _b is a flag for if found different key word from _keys
@@ -359,6 +378,7 @@ function saveShyl2Yaml
                if [ ${_b} -eq 1 -o "${_k[${ii}]}" != "${_keys[${ii}]}" ];then
                     # If found new key word, all left key words must be wrote to file
                     _b=1
+                    local array_type=$(checkElementIsTheFirstInArray ${ii} ${_k[*]})
                     writeLineToFile ${1} ${ii} ${array_type} "${_k[*]}" "${_s[@]:1}"
                fi
             done
