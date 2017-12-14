@@ -70,6 +70,11 @@ So far, shyaml can handle follow yaml content types:
 a: 1
 b: 2
 ```
+Converting to shyl object array is:
+```
+a:1
+b:2
+```
 * Array value, e.g. 
 ```yaml
 a:
@@ -80,8 +85,20 @@ a:
   c:
     d: 4
 ```
-* Value contains {}, e.g.
+Converting to shyl object array is:
+```
+a[0].b:1
+a[0].c.d:2
+a[1].b:3
+a[1].c.d:4
+```
+* Value is between in '{}', e.g.
 ```yaml
 a: 1
 b: {x: "",y: 123}
+```
+Converting to shyl object array is:
+```
+a:1
+b:{x: "",y: 123}
 ```
